@@ -17,4 +17,4 @@
 	ignore = untracked
 [submodule "Source/chinese_postman"]
 	path = Source/chinese_postman
-	url = git@github.com:jameshball/chinese-postman.git
+	url = https://github.com/jameshball/chinese-postman.git
