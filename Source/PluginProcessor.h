@@ -103,6 +103,11 @@ public:
     std::vector<int> fileIds;
     std::atomic<int> currentFile = -1;
 
+    // VST automation: 0..1 maps linearly to loaded file index (quantised)
+    // Created/registered only for plugin builds (not standalone).
+    osci::FloatParameter* fileSelect = nullptr;
+    std::atomic<bool> fileSelectSyncing = false;
+
     juce::ChangeBroadcaster broadcaster;
     std::atomic<bool> objectServerRendering = false;
     juce::ChangeBroadcaster fileChangeBroadcaster;

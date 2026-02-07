@@ -133,6 +133,21 @@ OscirenderAudioProcessor::OscirenderAudioProcessor() : CommonAudioProcessor(Buse
     floatParameters.push_back(animationRate);
     floatParameters.push_back(animationOffset);
 
+    // VST automation parameter: File Select (0..1 => file index, quantised)
+    // Standalone does not expose this parameter.
+    if (!juce::JUCEApplicationBase::isStandaloneApp()) {
+        fileSelect = new osci::FloatParameter(
+            "File Select",
+            "fileSelect",
+            VERSION_HINT,
+            0.0f,
+            0.0f,
+            1.0f,
+            0.0f
+        );
+        floatParameters.push_back(fileSelect);
+    }
+
     for (int i = 0; i < voices->getValueUnnormalised(); i++) {
         synth.addVoice(new ShapeVoice(*this, inputBuffer));
     }
@@ -148,6 +163,9 @@ OscirenderAudioProcessor::OscirenderAudioProcessor() : CommonAudioProcessor(Buse
     sustainLevel->addListener(this);
     releaseTime->addListener(this);
     releaseShape->addListener(this);
+    if (fileSelect != nullptr) {
+        fileSelect->addListener(this);
+    }
 
     for (int i = 0; i < luaEffects.size(); i++) {
         luaEffects[i]->parameters[0]->addListener(this);
@@ -161,6 +179,9 @@ OscirenderAudioProcessor::OscirenderAudioProcessor() : CommonAudioProcessor(Buse
 OscirenderAudioProcessor::~OscirenderAudioProcessor() {
     for (int i = luaEffects.size() - 1; i >= 0; i--) {
         luaEffects[i]->parameters[0]->removeListener(this);
+    }
+    if (fileSelect != nullptr) {
+        fileSelect->removeListener(this);
     }
     releaseShape->removeListener(this);
     releaseTime->removeListener(this);
@@ -383,6 +404,18 @@ void OscirenderAudioProcessor::changeCurrentFile(int index) {
     }
     currentFile = index;
     changeSound(sounds[index]);
+
+    // Keep the automation parameter in sync when user changes files via UI/keys.
+    // Avoid doing host notifications from the audio thread.
+    if (fileSelect != nullptr && juce::MessageManager::existsAndIsCurrentThread()) {
+        const int n = (int)fileBlocks.size();
+        if (n > 0) {
+            const float normalised = (n == 1) ? 0.0f : ((float)index / (float)(n - 1));
+            fileSelectSyncing.store(true, std::memory_order_release);
+            fileSelect->setUnnormalisedValueNotifyingHost(normalised);
+            fileSelectSyncing.store(false, std::memory_order_release);
+        }
+    }
 }
 
 void OscirenderAudioProcessor::changeSound(ShapeSound::Ptr sound) {
@@ -990,6 +1023,27 @@ void OscirenderAudioProcessor::setStateInformation(const void* data, int sizeInB
 }
 
 void OscirenderAudioProcessor::parameterValueChanged(int parameterIndex, float newValue) {
+    if (fileSelect != nullptr && parameterIndex == fileSelect->getParameterIndex()) {
+        if (fileSelectSyncing.load(std::memory_order_acquire)) {
+            return;
+        }
+
+        juce::SpinLock::ScopedLockType lock1(parsersLock);
+        juce::SpinLock::ScopedLockType lock2(effectsLock);
+
+        const int n = (int)fileBlocks.size();
+        if (n <= 0) {
+            return;
+        }
+
+        const float v = juce::jlimit(0.0f, 1.0f, newValue);
+        const int targetIndex = (n == 1) ? 0 : juce::jlimit(0, n - 1, juce::roundToInt(v * (float)(n - 1)));
+        if (targetIndex != currentFile.load()) {
+            changeCurrentFile(targetIndex);
+        }
+        return;
+    }
+
     // TODO: Figure out why below code was needed and if it is still needed
     // for (auto effect : luaEffects) {
     //     if (parameterIndex == effect->parameters[0]->getParameterIndex()) {
