@@ -1,5 +1,10 @@
 <a href="https://osci-render.com"><img width="100%" src="images/osci-wide-tagline.png" /></a>
 
+## 【自分のプロジェクトのための機能追加】VST Plugin: ファイル選択のオートメーションの追加
+
+VST/AUプラグイン版では、読み込んだファイル（.svg / .mp4 / .png / .lua など）の切り替えを **DAWのオートメーションで制御**できます。パラメータ **「File Select」**（0.0〜1.0）をオートメーションし、読み込みファイル数に応じて段階的に切り替えられます。キーボードの j/k やUIの矢印ボタンで切り替えた場合も、ホストのオートメーション表示と同期します。Standalone版ではこのパラメータは公開されません。
+
+---
 <p align="center">
     <a href="https://app.codacy.com/gh/jameshball/osci-render/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade" alt="Codacy">
         <img src="https://app.codacy.com/project/badge/Grade/2a3cfe583d8c49fc8aa8e496bd79133b" /></a>
